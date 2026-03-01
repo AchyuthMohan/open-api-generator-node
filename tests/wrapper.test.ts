@@ -24,14 +24,14 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
 import { execSync } from 'node:child_process';
-
+import { filenameFromTitle } from '../scripts/generate-glint-dtos';
 // Load the module under test
-const scriptPath = path.resolve(process.cwd(), 'src', 'generate-glint-dtos.js');
+const scriptPath = path.resolve(process.cwd(), 'scripts', 'generate-glint-dtos.js');
 if (!fs.existsSync(scriptPath)) {
   console.error(`generate-glint-dtos.js not found at ${scriptPath}`);
   process.exit(1);
 }
-const { filenameFromTitle } = require(scriptPath);
+
 
 let passed = 0;
 let failed = 0;
@@ -110,7 +110,8 @@ test('Weather Data API → weather_data_api.dto.ts', () => {
 console.log('\nIntegration (end-to-end)');
 
 const cwd = process.cwd();
-const generatorExists = fs.existsSync(path.join(cwd, 'generator.ts'));
+const srcPath = path.join(process.cwd(), 'src');
+const generatorExists = fs.existsSync(path.join(srcPath, 'generator.ts'));
 const openapiExists =
   fs.existsSync(path.join(cwd, 'openapi', 'openapi.yaml')) ||
   fs.existsSync(path.join(cwd, 'openapi.yaml'));
