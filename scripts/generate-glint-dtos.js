@@ -53,7 +53,9 @@ const cmd = `tsx "${generatorPath}" "${openapiPath}" --style=nest`;
 
 try {
   const stdout = child_process.execSync(cmd, { encoding: 'utf8' });
-  fs.writeFileSync(path.join(cwd, outFile), stdout, 'utf8');
+  const path = require('path');
+  const srcPath = path.join(process.cwd(), 'src');
+  fs.writeFileSync(path.join(srcPath, outFile), stdout, 'utf8');
   console.log(`Generated DTOs -> ${outFile}`);
 } catch (err) {
   console.error('Failed to run generator:', err.message || err);

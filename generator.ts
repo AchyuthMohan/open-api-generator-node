@@ -69,7 +69,7 @@ export function pascalCase(str: string): string {
 }
 
 export function getTsType(schema: any, schemas: Record<string, any>): string {
-  if (!schema) return 'any';
+  if (!schema) {return 'any';}
 
   if (schema.$ref) {
     const refName = schema.$ref.split('/').pop()!;
@@ -82,8 +82,8 @@ export function getTsType(schema: any, schemas: Record<string, any>): string {
 
   switch (schema.type) {
     case 'string':
-      if (schema.format === 'date-time') return 'Date | string';
-      if (schema.format === 'date') return 'Date | string';
+      if (schema.format === 'date-time') { return 'Date | string'; }
+      if (schema.format === 'date') { return 'Date | string'; }
       return 'string';
 
     case 'integer':
@@ -112,7 +112,7 @@ export function getTsType(schema: any, schemas: Record<string, any>): string {
 export function generateInterface(name: string, schema: any, schemas: Record<string, any>, useExport: boolean): string {
   const lines: string[] = [];
 
-  if (useExport) lines.push(`export `);
+  if (useExport) { lines.push(`export `); }
   lines.push(`interface ${name} {`);
 
   if (schema.properties) {
@@ -156,10 +156,12 @@ export function generateClass(name: string, schema: any, schemas: Record<string,
         }
 
         // Very basic decorator support (you can extend this)
-        if (type.includes('string')) lines.push('  @IsString()');
-        if (type.includes('number')) lines.push('  @IsNumber()');
-        if (type.includes('boolean')) lines.push('  @IsBoolean()');
-        if (!required) lines.push('  @IsOptional()');
+        if (type.includes('string')) {
+          lines.push('  @IsString()');
+        }
+        if (type.includes('number')) { lines.push('  @IsNumber()'); }
+        if (type.includes('boolean')) { lines.push('  @IsBoolean()'); }
+        if (!required) { lines.push('  @IsOptional()'); }
       }
 
       lines.push(`  ${propName}${required ? '' : '?'}: ${type};`);
@@ -180,6 +182,7 @@ async function main() {
     content = await fs.readFile(file, 'utf-8');
   } catch (err) {
     console.error(`Cannot read file: ${file}`);
+    console.error(err)
     process.exit(1);
   }
 
