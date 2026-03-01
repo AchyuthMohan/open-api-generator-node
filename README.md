@@ -44,6 +44,25 @@ tsx generator.ts openapi.yaml --style=nest > dtos.nest.ts
 tsx generator.ts openapi.yaml --no-export > dtos.partial.ts
 ```
 
+**Generate script**
+
+This repository includes an automated wrapper script that detects your OpenAPI file and generates a DTO file whose name is derived from the OpenAPI `info.title`.
+
+- Run:
+
+```bash
+npm run generate-glint-dtos
+```
+
+- Behavior:
+  - Looks for `openapi/openapi.yaml` first, then `openapi.yaml` in the repo root.
+  - Reads `info.title` from the spec and converts it to a snake_cased filename suffixed with `.dto.ts`.
+    - Example: `Weather Data API` → `weather_data_api.dto.ts`.
+  - Runs the generator and writes the DTOs to that file.
+
+You can still run the generator directly if you prefer custom filenames or styles.
+
+
 ## Options
 
 - `--style=interface|class|nest` — Choose output style. `nest` adds basic `class-validator` imports and decorator markers.
