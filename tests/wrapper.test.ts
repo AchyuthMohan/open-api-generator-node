@@ -122,7 +122,7 @@ if (!generatorExists || !openapiExists) {
   const expectedFile = path.join(cwd, 'weather_data_api.dto.ts');
 
   function cleanup() {
-    if (fs.existsSync(expectedFile)) fs.unlinkSync(expectedFile);
+    if (fs.existsSync(expectedFile)) { fs.unlinkSync(expectedFile); }
   }
 
   test('script exits with code 0 and writes the .dto.ts file', () => {
@@ -170,4 +170,4 @@ if (!generatorExists || !openapiExists) {
 console.log(`\n${'─'.repeat(50)}`);
 console.log(`Results: ${passed} passed, ${failed} failed`);
 
-if (failed > 0) process.exit(1);
+if (failed > 0) { process.exit(1); }

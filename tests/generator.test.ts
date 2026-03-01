@@ -22,9 +22,27 @@
  */
 
 import assert from 'node:assert/strict';
-import { execSync } from 'node:child_process';
+import { execSync, type SpawnSyncReturns } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
+
+// ─── OpenAPI schema shape used by the helpers ──────────────────────────────
+
+type EnumValue = string | number | boolean;
+
+interface SchemaObject {
+  type?: string;
+  format?: string;
+  $ref?: string;
+  enum?: EnumValue[];
+  items?: SchemaObject;
+  properties?: Record<string, SchemaObject>;
+  additionalProperties?: SchemaObject;
+  required?: string[];
+  nullable?: boolean;
+  description?: string;
+  example?: EnumValue | null;
+}
 
 // ─── Copy of pure helpers from generator.ts ────────────────────────────────
 // Keep these in sync with the source.  Tests will catch regressions when you
@@ -36,22 +54,23 @@ function pascalCase(str: string): string {
     .replace(/^./, (c) => c.toUpperCase());
 }
 
-function getTsType(schema: any, schemas: Record<string, any>): string {
-  if (!schema) return 'any';
+function getTsType(schema: SchemaObject | null | undefined, schemas: Record<string, SchemaObject>): string {
+  if (!schema) { return 'any'; }
 
   if (schema.$ref) {
-    const refName = schema.$ref.split('/').pop()!;
+    const parts = schema.$ref.split('/');
+    const refName = parts[parts.length - 1];
     return pascalCase(refName);
   }
 
   if (schema.enum) {
-    return schema.enum.map((v: any) => JSON.stringify(v)).join(' | ');
+    return schema.enum.map((v: EnumValue) => JSON.stringify(v)).join(' | ');
   }
 
   switch (schema.type) {
     case 'string':
-      if (schema.format === 'date-time') return 'Date | string';
-      if (schema.format === 'date') return 'Date | string';
+      if (schema.format === 'date-time') { return 'Date | string'; }
+      if (schema.format === 'date') { return 'Date | string'; }
       return 'string';
     case 'integer':
     case 'number':
@@ -75,22 +94,22 @@ function getTsType(schema: any, schemas: Record<string, any>): string {
 
 function generateInterface(
   name: string,
-  schema: any,
-  schemas: Record<string, any>,
+  schema: SchemaObject,
+  schemas: Record<string, SchemaObject>,
   useExport: boolean,
 ): string {
   const lines: string[] = [];
-  if (useExport) lines.push(`export `);
+  if (useExport) { lines.push('export '); }
   lines.push(`interface ${name} {`);
   if (schema.properties) {
-    for (const [propName, prop] of Object.entries<any>(schema.properties)) {
+    for (const [propName, prop] of Object.entries(schema.properties)) {
       const required = schema.required?.includes(propName);
-      const nullable = (prop as any).nullable ? ' | null' : '';
+      const nullable = prop.nullable ? ' | null' : '';
       const type = getTsType(prop, schemas) + nullable;
       const optionalMark = required ? '' : '?';
       let comment = '';
-      if ((prop as any).description) {
-        comment = ` // ${(prop as any).description.replace(/\n/g, ' ')}`;
+      if (prop.description) {
+        comment = ` // ${prop.description.replace(/\n/g, ' ')}`;
       }
       lines.push(`  ${propName}${optionalMark}: ${type};${comment}`);
     }
@@ -101,24 +120,24 @@ function generateInterface(
 
 function generateClass(
   name: string,
-  schema: any,
-  schemas: Record<string, any>,
+  schema: SchemaObject,
+  schemas: Record<string, SchemaObject>,
   useDecorators: boolean,
 ): string {
   const lines: string[] = [];
   lines.push(`export class ${name} {`);
   if (schema.properties) {
-    for (const [propName, prop] of Object.entries<any>(schema.properties)) {
+    for (const [propName, prop] of Object.entries(schema.properties)) {
       const required = schema.required?.includes(propName);
-      const nullable = (prop as any).nullable ? ' | null' : '';
+      const nullable = prop.nullable ? ' | null' : '';
       const type = getTsType(prop, schemas) + nullable;
       if (useDecorators) {
-        if ((prop as any).description) lines.push(`  /** ${(prop as any).description} */`);
-        if ((prop as any).example) lines.push(`  // @example ${JSON.stringify((prop as any).example)}`);
-        if (type.includes('string')) lines.push('  @IsString()');
-        if (type.includes('number')) lines.push('  @IsNumber()');
-        if (type.includes('boolean')) lines.push('  @IsBoolean()');
-        if (!required) lines.push('  @IsOptional()');
+        if (prop.description) { lines.push(`  /** ${prop.description} */`); }
+        if (prop.example !== undefined) { lines.push(`  // @example ${JSON.stringify(prop.example)}`); }
+        if (type.includes('string')) { lines.push('  @IsString()'); }
+        if (type.includes('number')) { lines.push('  @IsNumber()'); }
+        if (type.includes('boolean')) { lines.push('  @IsBoolean()'); }
+        if (!required) { lines.push('  @IsOptional()'); }
       }
       lines.push(`  ${propName}${required ? '' : '?'}: ${type};`);
       lines.push('');
@@ -133,19 +152,20 @@ function generateClass(
 let passed = 0;
 let failed = 0;
 
-function test(name: string, fn: () => void) {
+function test(name: string, fn: () => void): void {
   try {
     fn();
     console.log(`  ✓ ${name}`);
     passed++;
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(`  ✗ ${name}`);
-    console.error(`    ${err.message}`);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`    ${message}`);
     failed++;
   }
 }
 
-const emptySchemas: Record<string, any> = {};
+const emptySchemas: Record<string, SchemaObject> = {};
 
 // ─── pascalCase ────────────────────────────────────────────────────────────
 
@@ -262,7 +282,7 @@ test('returns "any" for unknown/unsupported type', () => {
 
 console.log('\ngenerateInterface()');
 
-const locationSchema = {
+const locationSchema: SchemaObject = {
   type: 'object',
   properties: {
     latitude: { type: 'number' },
@@ -288,7 +308,7 @@ test('omits "export" keyword when exportAll=false', () => {
 });
 
 test('required property has no "?" optional marker', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     required: ['latitude'],
     properties: { latitude: { type: 'number' }, city: { type: 'string' } },
@@ -298,7 +318,7 @@ test('required property has no "?" optional marker', () => {
 });
 
 test('non-required property has "?" optional marker', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     required: ['latitude'],
     properties: { latitude: { type: 'number' }, city: { type: 'string' } },
@@ -308,7 +328,7 @@ test('non-required property has "?" optional marker', () => {
 });
 
 test('nullable property emits "T | null"', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     properties: { description: { type: 'string', nullable: true } },
   };
@@ -317,7 +337,7 @@ test('nullable property emits "T | null"', () => {
 });
 
 test('property description becomes inline "// ..." comment', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     properties: { status: { type: 'integer', description: 'HTTP status code' } },
   };
@@ -326,7 +346,7 @@ test('property description becomes inline "// ..." comment', () => {
 });
 
 test('multiline description collapses newlines in comment', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     properties: { info: { type: 'string', description: 'line one\nline two' } },
   };
@@ -341,7 +361,7 @@ test('schema with no properties produces valid empty interface body', () => {
 });
 
 test('$ref property resolves to PascalCase type in interface', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     properties: { location: { $ref: '#/components/schemas/Location' } },
   };
@@ -350,7 +370,7 @@ test('$ref property resolves to PascalCase type in interface', () => {
 });
 
 test('date-time property produces "Date | string" in interface', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     properties: { observationTime: { type: 'string', format: 'date-time' } },
   };
@@ -359,7 +379,7 @@ test('date-time property produces "Date | string" in interface', () => {
 });
 
 test('array-of-ref property produces "TypeName[]" in interface', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     properties: {
       forecasts: { type: 'array', items: { $ref: '#/components/schemas/DailyForecast' } },
@@ -379,7 +399,7 @@ test('emits "export class <n> {" declaration', () => {
 });
 
 test('required class property has no "?" marker', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     required: ['status'],
     properties: { status: { type: 'integer' }, message: { type: 'string' } },
@@ -389,7 +409,7 @@ test('required class property has no "?" marker', () => {
 });
 
 test('optional class property has "?" marker', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     required: ['status'],
     properties: { status: { type: 'integer' }, message: { type: 'string' } },
@@ -399,31 +419,31 @@ test('optional class property has "?" marker', () => {
 });
 
 test('emits @IsString() for string when useDecorators=true', () => {
-  const schema = { type: 'object', properties: { city: { type: 'string' } } };
+  const schema: SchemaObject = { type: 'object', properties: { city: { type: 'string' } } };
   const code = generateClass('LocationDto', schema, emptySchemas, true);
   assert.ok(code.includes('@IsString()'), `Expected @IsString() in:\n${code}`);
 });
 
 test('emits @IsNumber() for number when useDecorators=true', () => {
-  const schema = { type: 'object', properties: { temperature: { type: 'number' } } };
+  const schema: SchemaObject = { type: 'object', properties: { temperature: { type: 'number' } } };
   const code = generateClass('WeatherDto', schema, emptySchemas, true);
   assert.ok(code.includes('@IsNumber()'), `Expected @IsNumber() in:\n${code}`);
 });
 
 test('emits @IsBoolean() for boolean when useDecorators=true', () => {
-  const schema = { type: 'object', properties: { active: { type: 'boolean' } } };
+  const schema: SchemaObject = { type: 'object', properties: { active: { type: 'boolean' } } };
   const code = generateClass('FlagDto', schema, emptySchemas, true);
   assert.ok(code.includes('@IsBoolean()'), `Expected @IsBoolean() in:\n${code}`);
 });
 
 test('emits @IsOptional() for non-required fields when useDecorators=true', () => {
-  const schema = { type: 'object', properties: { windSpeed: { type: 'number' } } };
+  const schema: SchemaObject = { type: 'object', properties: { windSpeed: { type: 'number' } } };
   const code = generateClass('WeatherDto', schema, emptySchemas, true);
   assert.ok(code.includes('@IsOptional()'), `Expected @IsOptional() in:\n${code}`);
 });
 
 test('does NOT emit @IsOptional() for required fields when useDecorators=true', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     required: ['status'],
     properties: { status: { type: 'integer' } },
@@ -433,13 +453,13 @@ test('does NOT emit @IsOptional() for required fields when useDecorators=true', 
 });
 
 test('emits no @Is* decorators when useDecorators=false', () => {
-  const schema = { type: 'object', properties: { city: { type: 'string' } } };
+  const schema: SchemaObject = { type: 'object', properties: { city: { type: 'string' } } };
   const code = generateClass('LocationDto', schema, emptySchemas, false);
   assert.ok(!code.includes('@Is'), `Did not expect any @Is decorators in:\n${code}`);
 });
 
 test('emits /** description */ JSDoc when useDecorators=true', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     properties: { message: { type: 'string', description: 'Human-readable error' } },
   };
@@ -448,7 +468,7 @@ test('emits /** description */ JSDoc when useDecorators=true', () => {
 });
 
 test('emits // @example comment when property has example and useDecorators=true', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     properties: { city: { type: 'string', example: 'London' } },
   };
@@ -457,7 +477,7 @@ test('emits // @example comment when property has example and useDecorators=true
 });
 
 test('nullable class property type includes "| null"', () => {
-  const schema = {
+  const schema: SchemaObject = {
     type: 'object',
     properties: { description: { type: 'string', nullable: true } },
   };
@@ -481,8 +501,8 @@ const openapiFile =
   fs.existsSync(path.join(cwd, 'openapi', 'openapi.yaml'))
     ? path.join(cwd, 'openapi', 'openapi.yaml')
     : fs.existsSync(path.join(cwd, 'openapi.yaml'))
-    ? path.join(cwd, 'openapi.yaml')
-    : null;
+      ? path.join(cwd, 'openapi.yaml')
+      : null;
 
 if (!fs.existsSync(generatorTs) || !openapiFile) {
   console.log('  ⚠  Skipped – generator.ts or openapi.yaml not found in cwd');
@@ -491,24 +511,24 @@ if (!fs.existsSync(generatorTs) || !openapiFile) {
     const out = execSync(`npx tsx "${generatorTs}" "${openapiFile}" --style=interface`, {
       encoding: 'utf8', cwd,
     });
-    assert.ok(out.includes('interface '), `Expected interface declarations`);
-    assert.ok(!out.includes('export class '), `Did not expect class declarations for interface style`);
+    assert.ok(out.includes('interface '), 'Expected interface declarations');
+    assert.ok(!out.includes('export class '), 'Did not expect class declarations for interface style');
   });
 
   test('--style=class produces class declarations without decorators', () => {
     const out = execSync(`npx tsx "${generatorTs}" "${openapiFile}" --style=class`, {
       encoding: 'utf8', cwd,
     });
-    assert.ok(out.includes('export class '), `Expected class declarations`);
-    assert.ok(!out.includes("from 'class-validator'"), `Did not expect class-validator import`);
+    assert.ok(out.includes('export class '), 'Expected class declarations');
+    assert.ok(!out.includes("from 'class-validator'"), 'Did not expect class-validator import');
   });
 
   test('--style=nest produces classes with class-validator import', () => {
     const out = execSync(`npx tsx "${generatorTs}" "${openapiFile}" --style=nest`, {
       encoding: 'utf8', cwd,
     });
-    assert.ok(out.includes('export class '), `Expected class declarations`);
-    assert.ok(out.includes("from 'class-validator'"), `Expected class-validator import`);
+    assert.ok(out.includes('export class '), 'Expected class declarations');
+    assert.ok(out.includes("from 'class-validator'"), 'Expected class-validator import');
   });
 
   test('output contains all expected schema names from openapi.yaml', () => {
@@ -524,15 +544,17 @@ if (!fs.existsSync(generatorTs) || !openapiFile) {
     const out = execSync(`npx tsx "${generatorTs}" "${openapiFile}" --style=interface`, {
       encoding: 'utf8', cwd,
     });
-    assert.ok(out.includes('Auto-generated DTOs'), `Expected header comment`);
+    assert.ok(out.includes('Auto-generated DTOs'), 'Expected header comment');
   });
 
   test('exits with code 1 when no file argument provided', () => {
     try {
       execSync(`npx tsx "${generatorTs}"`, { encoding: 'utf8', cwd, stdio: 'pipe' });
       assert.fail('Expected non-zero exit');
-    } catch (err: any) {
-      assert.ok(err.status !== 0, `Expected non-zero exit, got ${err.status}`);
+    } catch (err: unknown) {
+      // execSync throws a SpawnSyncReturns-shaped object on non-zero exit
+      const spawnErr = err as SpawnSyncReturns<string>;
+      assert.ok(spawnErr.status !== 0, `Expected non-zero exit, got ${spawnErr.status}`);
     }
   });
 }
@@ -542,4 +564,4 @@ if (!fs.existsSync(generatorTs) || !openapiFile) {
 console.log(`\n${'─'.repeat(50)}`);
 console.log(`Results: ${passed} passed, ${failed} failed`);
 
-if (failed > 0) process.exit(1);
+if (failed > 0) { process.exit(1); }

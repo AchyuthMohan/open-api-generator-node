@@ -1,7 +1,7 @@
 // -------------------------------------------------------
 // Auto-generated DTOs from OpenAPI spec
 // Source: openapi.yaml
-// Generated: 2026-03-01T09:22:45.960Z
+// Generated: 2026-03-01T11:40:36.069Z
 // -------------------------------------------------------
 
 import { IsString, IsNumber, IsBoolean, IsOptional, IsDateString } from 'class-validator';
