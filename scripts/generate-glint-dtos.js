@@ -38,6 +38,9 @@ function filenameFromTitle(t) {
     + '.dto.ts';
 }
 
+// export helper for tests
+module.exports = { filenameFromTitle };
+
 const outFile = filenameFromTitle(title);
 
 const generatorPath = path.join(cwd, 'generator.ts');

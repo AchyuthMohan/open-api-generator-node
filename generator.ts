@@ -31,7 +31,7 @@ type CliArgs = {
   exportAll: boolean;
 };
 
-function parseArgs(): CliArgs {
+export function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
   let file = '';
   let style: 'interface' | 'class' | 'nest' = 'interface';
@@ -62,13 +62,13 @@ function parseArgs(): CliArgs {
   return { file, style, useDecorators, exportAll };
 }
 
-function pascalCase(str: string): string {
+export function pascalCase(str: string): string {
   return str
     .replace(/([-_]\w)/g, g => g[1].toUpperCase())
     .replace(/^./, c => c.toUpperCase());
 }
 
-function getTsType(schema: any, schemas: Record<string, any>): string {
+export function getTsType(schema: any, schemas: Record<string, any>): string {
   if (!schema) return 'any';
 
   if (schema.$ref) {
@@ -109,7 +109,7 @@ function getTsType(schema: any, schemas: Record<string, any>): string {
   }
 }
 
-function generateInterface(name: string, schema: any, schemas: Record<string, any>, useExport: boolean): string {
+export function generateInterface(name: string, schema: any, schemas: Record<string, any>, useExport: boolean): string {
   const lines: string[] = [];
 
   if (useExport) lines.push(`export `);
@@ -136,7 +136,7 @@ function generateInterface(name: string, schema: any, schemas: Record<string, an
   return lines.join('\n');
 }
 
-function generateClass(name: string, schema: any, schemas: Record<string, any>, useDecorators: boolean): string {
+export function generateClass(name: string, schema: any, schemas: Record<string, any>, useDecorators: boolean): string {
   const lines: string[] = [];
 
   lines.push(`export class ${name} {`);
