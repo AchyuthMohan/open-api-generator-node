@@ -6,7 +6,7 @@
   "scripts": {
     "start": "tsx generator.ts openapi.yaml --style=nest > weather.dto.ts",
     "generate-glint-dtos": "node scripts/generate-glint-dtos.js",
-    "test": "tsx tests/generator.test.ts && tsx tests/wrapper.test.ts"
+    "test": "npx tsx tests/generator.test.ts && npx tsx tests/wrapper.test.ts"
   },
   "keywords": [],
   "author": "",
